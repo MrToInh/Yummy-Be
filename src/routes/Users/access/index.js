@@ -15,7 +15,7 @@ router.post("/user/login", asyncHandle(accessController.login));
 router.use(authorization);
 
 //logout
-router.post("/user/logout", asyncHandle(accessController.logOut));
+router.post("/user/logout", asyncHandle(accessController.logout));
 
 router.post(
   "/user/handelRefeshToken",

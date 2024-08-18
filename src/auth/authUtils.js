@@ -3,7 +3,7 @@
 const JWT = require("jsonwebtoken");
 const { asyncHandle } = require("../helper/asyncHandler");
 const { AuthFailError, NotFoundError } = require("../core/error.response");
-const {findByUserId}=require("../services/Users/keyToken.service")
+const { findByUserId } = require("../services/Users/keyToken.service");
 const HEADER = {
   API_KEY: "x-api-key",
   CLIENT_ID: "x-client-id",
@@ -44,7 +44,7 @@ const authorization = asyncHandle(async (req, res, next) => {
     6 - OK all => return next() 
     */
   //1
-  const userId = req.headers[HEADER.CLIENT_ID]; 
+  const userId = req.headers[HEADER.CLIENT_ID];
   if (!userId) throw new AuthFailError(" Invalid request");
   //2
   const keyStore = await findByUserId(userId);
@@ -54,8 +54,8 @@ const authorization = asyncHandle(async (req, res, next) => {
   if (req.headers[HEADER.REFRESHTOKEN]) {
     try {
       const refreshToken = req.headers[HEADER.REFRESHTOKEN];
-      const decodeUser = JWT.verify(refreshToken, keyStore.privatekey);
-      if (userId !== decodeUser.userId)
+      const decodeUser = JWT.verify(refreshToken, keyStore.privateKey);
+      if (userId != decodeUser.userId)
         throw new AuthFailError("invalid UserId");
       req.keyStore = keyStore;
       req.user = decodeUser;
@@ -68,11 +68,11 @@ const authorization = asyncHandle(async (req, res, next) => {
   const accessToken = req.headers[HEADER.AUTHORIZATION];
   if (!accessToken) throw new AuthFailError("Invalid request");
   try {
-    const decodeUser = JWT.verify(accessToken, keyStore.publickey);
-    if (userId !== decodeUser.userId) throw new AuthFailError("Invalid User");
+    const decodeUser = JWT.verify(accessToken, keyStore.publicKey);
+    if (userId != decodeUser.userId) throw new AuthFailError("Invalid User");
     req.keyStore = keyStore;
     req.user = decodeUser;
-    return next;
+    return next();
   } catch (error) {
     throw error;
   }
@@ -80,4 +80,4 @@ const authorization = asyncHandle(async (req, res, next) => {
 const verifyJWT = async (token, keySecret) => {
   return await JWT.verify(token, keySecret);
 };
-module.exports = { createTokenPair,verifyJWT,authorization };
+module.exports = { createTokenPair, verifyJWT, authorization };

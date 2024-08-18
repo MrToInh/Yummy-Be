@@ -3,12 +3,12 @@ const db = require("../../models/index.model");
 const keyTokenModel = db.KeyToken;
 
 class KeyTokenService {
-  static createKeyToken = async (
+  static createKeyToken = async ({
     userId,
     publicKey,
     privateKey,
     refreshToken,
-  ) => {
+  }) => {
     try {
       // const filter = { userId: userId },
       //   update = {
@@ -23,12 +23,30 @@ class KeyTokenService {
       //   update,
       //   option
       // );
-      const tokens=await keyTokenModel.create({
-        userId:userId,
-        privateKey:privateKey,
-        publicKey:publicKey,
-        refreshToken:refreshToken||"",
-      })
+      const tokensRecord = await keyTokenModel.findOne({
+        where: { userId: userId },
+      });
+      let tokens;
+      if (tokensRecord) {
+        tokens = await keyTokenModel.update(
+          {
+            privateKey: privateKey,
+            publicKey: publicKey,
+            refreshTokenUsed:{},
+            refreshToken: refreshToken,
+          },
+          {
+            where: { userId: userId },
+          }
+        );
+      } else {
+        tokens = await keyTokenModel.create({
+          userId: userId,
+          privateKey: privateKey,
+          publicKey: publicKey,
+          refreshToken: refreshToken || "",
+        });
+      }
       return tokens ? tokens.publicKey : null;
     } catch (error) {
       return error;
@@ -43,7 +61,13 @@ class KeyTokenService {
   };
 
   static removeKeyById = async (userId) => {
-    return await keyTokenModel.findById({ userId: userId });
+    const uI = await keyTokenModel.findOne({ userId: userId });
+    const deleteTokens = await keyTokenModel.destroy({
+      where: { id: uI.id },
+    });
+    return deleteTokens > 0
+      ? { success: true, meesage: "logout succsessfully" }
+      : { success: false, meesage: "logout failed" };
   };
 }
 module.exports = KeyTokenService;

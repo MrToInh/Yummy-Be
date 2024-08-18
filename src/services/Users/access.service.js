@@ -1,14 +1,18 @@
 "use strict";
 
-const { BadRequestError, AuthFailError ,ForbiddenError} = require("../../core/error.response");
+const {
+  BadRequestError,
+  AuthFailError,
+  ForbiddenError,
+} = require("../../core/error.response");
 const db = require("../../models/index.model");
 const user = db.User;
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
 const KeyTokenService = require("./keyToken.service");
 const { createTokenPair } = require("../../auth/authUtils");
-const getInforData = require("../../utils/index"); 
-const {findByEmail}=require("./user.service")
+const getInforData = require("../../utils/index");
+const { findByEmail } = require("./user.service");
 class AccessService {
   static singUp = async ({ username, password, email }) => {
     const holderUser = await user.findOne({
@@ -29,15 +33,14 @@ class AccessService {
     });
 
     if (newUser) {
-      const publickey = crypto.randomBytes(64).toString("hex");
-      const privatekey = crypto.randomBytes(64).toString("hex");
-      console.log(publickey, privatekey);
-      const userId=newUser.id
-      const keyStore = await KeyTokenService.createKeyToken(
-        userId,
-        publickey,
-        privatekey,
-    );
+      const publicKey = await crypto.randomBytes(64).toString("hex");
+      const privateKey = await crypto.randomBytes(64).toString("hex");
+      console.log(publicKey, privateKey);
+      const keyStore = await KeyTokenService.createKeyToken({
+        userId: newUser.id,
+        publicKey,
+        privateKey,
+      });
       if (!keyStore) {
         throw new BadRequestError("Error: Key not in database");
       }
@@ -46,8 +49,8 @@ class AccessService {
           userId: newUser._id,
           email,
         },
-        publickey,
-        privatekey
+        publicKey,
+        privateKey
       );
       console.log(`Create tokens successfully::`, tokens);
 
@@ -67,7 +70,7 @@ class AccessService {
       metadata: null,
     };
   };
-  static singIn = async ({ email, password, refreshToken = null }) => {
+  static login = async ({ email, password, refreshToken = null }) => {
     /*
             #step1: check exist email
             #step2: check match password
@@ -89,58 +92,51 @@ class AccessService {
 
     //grenerate tokens
     const tokens = await createTokenPair(
-      { userId: foundUser._id, email },
+      { userId: foundUser.id, email },
       publicKey,
       privateKey
     );
 
     await KeyTokenService.createKeyToken({
-      userId: foundUser._id,
+      userId: foundUser.id,
       publicKey,
       privateKey,
       refreshToken: tokens.refreshToken,
     });
     return {
       user: getInforData({
-        fileds: ["_id", "name", "email"],
+        fileds: ["id", "username", "email"],
         object: foundUser,
       }),
       tokens,
     };
   };
-  static handleRefreshToken=async({keyStore,user,refreshToken})=>{
-    const {userId,email}=user;
-    if(keyStore.refreshTokenUsed.include(refreshToken)){
+  static handleRefreshToken = async ({ keyStore, user, refreshToken }) => {
+    const { userId, email } = user;
+    if (keyStore.refreshTokenUsed.hasOwnProperty(refreshToken)) {
       await KeyTokenService.removeKeyById(userId);
       throw new ForbiddenError("Something wrong happend!! please relogin");
     }
-    if(keyStore.refreshToken!==refreshToken){
+    if (keyStore.refreshToken !== refreshToken) {
       throw new AuthFailError("user not registered");
     }
-    const tokens=await createTokenPair(
-      {userId,email},
+    const tokens = await createTokenPair(
+      { userId, email },
       keyStore.publicKey,
       keyStore.privateKey
     );
-    console.log(typeof keyStore);
-
-    await keyStore.updateOne({
-      $set:{refreshToken:tokens.refreshToken},
-      $addToSet:{
-        refreshToken:refreshToken,
-      },//đã được sử dụng để lấy token mới
+    await keyStore.update({
+      refreshToken: tokens.refreshToken,
+      refreshTokenUsed: refreshToken,
     });
     return {
       user,
       tokens,
-    }
+    };
   };
-  static logOut=async(keyStore)=>{
-    const delKey=await KeyTokenService.removeKeyById(keyStore._id);
-    console.log(delKey);
-    return delKey;
-  }
+  static logout = async (keyStore) => {
+    return await KeyTokenService.removeKeyById(keyStore.id);
+  };
 }
-
 
 module.exports = AccessService;
